@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import datetime
+import time as time_module
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import CONF_NAME
@@ -49,11 +51,7 @@ class ZeekrTravelPlanSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_name = f"{prefix} Reisplanning"
         self._attr_unique_id = f"{coordinator.entry.entry_id}_travel_plan_main"
         self._attr_icon = "mdi:calendar-clock"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, vin)},
-            "name": prefix,
-            "manufacturer": "Zeekr",
-        }
+        self._attr_device_info = {"identifiers": {(DOMAIN, vin)}, "name": prefix, "manufacturer": "Zeekr"}
         self._day_switches, self._ac_opt, self._bw_opt, self._cycle_opt = day_switches, ac_opt, bw_opt, cycle_opt
 
     @property
@@ -61,52 +59,140 @@ class ZeekrTravelPlanSwitch(CoordinatorEntity, SwitchEntity):
         return self.coordinator.data.get("travel", {}).get("command") == "start"
 
     async def _send_plan(self, command):
+        """Wordt aangeroepen door de Switch (start/stop) OF de Button (update)."""
         travel_data = self.coordinator.data.get("travel", {})
+        prefix_slug = self.coordinator.entry.data.get("name", "Zeekr 7X").lower().replace(" ", "_")
         
         if command == "stop":
-            # BELANGRIJK: Gebruik de bestaande data van de API bij een stop-commando
             payload = {
                 "command": "stop",
                 "timerId": travel_data.get("timerId", "4"),
                 "bwl": travel_data.get("bwl", "1"),
                 "ac": travel_data.get("ac", "true"),
-                "bw": travel_data.get("bw", "1"),
+                "bw": travel_data.get("bw", "0"),
                 "scheduleList": travel_data.get("scheduleList", []),
-                "scheduledTime": travel_data.get("scheduledTime", None),
-                "vst": travel_data.get("vst", None),
-                "vet": travel_data.get("vet", None)
+                "scheduledTime": travel_data.get("scheduledTime", "")
             }
         else:
-            schedule = []
-            prefix_slug = self.coordinator.entry.data.get("name", "Zeekr 7X").lower().replace(" ", "_")
-            dagnamen_en = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
-            activation_mode = "2" if self._cycle_opt.is_on else "1"
+            # START/UPDATE scenario
+            if self._cycle_opt.is_on:
+                schedule = []
+                dagnamen_en = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+                for sw in self._day_switches:
+                    if sw.is_on:
+                        t_state = self.hass.states.get(f"time.{prefix_slug}_{dagnamen_en[sw.day_index-1]}_tijd")
+                        schedule.append({
+                            "day": str(sw.day_index),
+                            "startTime": t_state.state[:5] if t_state else "08:00",
+                            "timerActivation": "1"
+                        })
+                payload = {
+                    "command": "start", "timerId": "4", "bwl": "1",
+                    "ac": "true" if self._ac_opt.is_on else "false",
+                    "bw": "1" if self._bw_opt.is_on else "0",
+                    "scheduleList": schedule, "scheduledTime": ""
+                }
+            else:
+                gen_time_state = self.hass.states.get(f"time.{prefix_slug}_dagelijkse_tijd")
+                target_time_str = gen_time_state.state if gen_time_state else "08:00:00"
+                
+                import datetime
+                import time as time_module
+                
+                now = datetime.datetime.now()
+                h, m = map(int, target_time_str.split(':')[:2])
+                target_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                
+                if target_dt <= now:
+                    target_dt += datetime.timedelta(days=1)
+                
+                timestamp_ms = str(int(time_module.mktime(target_dt.timetuple()) * 1000))
 
-            for sw in self._day_switches:
-                if sw.is_on:
-                    time_state = self.hass.states.get(f"time.{prefix_slug}_{dagnamen_en[sw.day_index-1]}_tijd")
-                    schedule.append({
-                        "day": str(sw.day_index),
-                        "startTime": time_state.state[:5] if time_state else "08:00",
-                        "timerActivation": activation_mode
-                    })
+                payload = {
+                    "command": "start",
+                    "timerId": "", 
+                    "bwl": "1",
+                    "ac": "true" if self._ac_opt.is_on else "false",
+                    "bw": "1" if self._bw_opt.is_on else "0",
+                    "scheduleList": [],
+                    "scheduledTime": timestamp_ms 
+                }
 
-            payload = {
-                "command": "start",
-                "timerId": "4",
-                "bwl": "1",
-                "ac": "true" if self._ac_opt.is_on else "false",
-                "bw": "1" if self._bw_opt.is_on else "0",
-                "scheduleList": schedule
-            }
-
-        # Gebruik de centralisereerde coordinator send_command (die wacht al 2s + refresh)
         await self.coordinator.send_command(URL_SET_TRAVEL, payload, f"Travelplan {command}")
+        
+
         for sw in self._day_switches + [self._ac_opt, self._bw_opt, self._cycle_opt]:
             sw._is_locally_on = None
 
+
     async def async_turn_on(self, **kwargs): await self._send_plan("start")
     async def async_turn_off(self, **kwargs): await self._send_plan("stop")
+
+# class ZeekrTravelPlanSwitch(CoordinatorEntity, SwitchEntity):
+#     def __init__(self, coordinator, prefix, day_switches, ac_opt, bw_opt, cycle_opt):
+#         super().__init__(coordinator)
+#         vin = coordinator.entry.data.get('vin')
+#         self._attr_name = f"{prefix} Reisplanning"
+#         self._attr_unique_id = f"{coordinator.entry.entry_id}_travel_plan_main"
+#         self._attr_icon = "mdi:calendar-clock"
+#         self._attr_device_info = {
+#             "identifiers": {(DOMAIN, vin)},
+#             "name": prefix,
+#             "manufacturer": "Zeekr",
+#         }
+#         self._day_switches, self._ac_opt, self._bw_opt, self._cycle_opt = day_switches, ac_opt, bw_opt, cycle_opt
+
+#     @property
+#     def is_on(self):
+#         return self.coordinator.data.get("travel", {}).get("command") == "start"
+
+#     async def _send_plan(self, command):
+#         travel_data = self.coordinator.data.get("travel", {})
+        
+#         if command == "stop":
+#             # BELANGRIJK: Gebruik de bestaande data van de API bij een stop-commando
+#             payload = {
+#                 "command": "stop",
+#                 "timerId": travel_data.get("timerId", "4"),
+#                 "bwl": travel_data.get("bwl", "1"),
+#                 "ac": travel_data.get("ac", "true"),
+#                 "bw": travel_data.get("bw", "1"),
+#                 "scheduleList": travel_data.get("scheduleList", []),
+#                 "scheduledTime": travel_data.get("scheduledTime", None),
+#                 "vst": travel_data.get("vst", None),
+#                 "vet": travel_data.get("vet", None)
+#             }
+#         else:
+#             schedule = []
+#             prefix_slug = self.coordinator.entry.data.get("name", "Zeekr 7X").lower().replace(" ", "_")
+#             dagnamen_en = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+#             activation_mode = "2" if self._cycle_opt.is_on else "1"
+
+#             for sw in self._day_switches:
+#                 if sw.is_on:
+#                     time_state = self.hass.states.get(f"time.{prefix_slug}_{dagnamen_en[sw.day_index-1]}_tijd")
+#                     schedule.append({
+#                         "day": str(sw.day_index),
+#                         "startTime": time_state.state[:5] if time_state else "08:00",
+#                         "timerActivation": activation_mode
+#                     })
+
+#             payload = {
+#                 "command": "start",
+#                 "timerId": "4",
+#                 "bwl": "1",
+#                 "ac": "true" if self._ac_opt.is_on else "false",
+#                 "bw": "1" if self._bw_opt.is_on else "0",
+#                 "scheduleList": schedule
+#             }
+
+#         # Gebruik de centralisereerde coordinator send_command (die wacht al 2s + refresh)
+#         await self.coordinator.send_command(URL_SET_TRAVEL, payload, f"Travelplan {command}")
+#         for sw in self._day_switches + [self._ac_opt, self._bw_opt, self._cycle_opt]:
+#             sw._is_locally_on = None
+
+#     async def async_turn_on(self, **kwargs): await self._send_plan("start")
+#     async def async_turn_off(self, **kwargs): await self._send_plan("stop")
 
 class ZeekrAircoControlSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator, prefix):
@@ -226,7 +312,7 @@ class ZeekrTravelOptionSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def is_on(self):
         if self._is_locally_on is not None: return self._is_locally_on
-        if self.key == "cycle": return any(str(p.get("timerActivation")) == "2" for p in self.coordinator.data.get("travel", {}).get("scheduleList", []))
+        if self.key == "cycle": return any(str(p.get("timerActivation")) == "1" for p in self.coordinator.data.get("travel", {}).get("scheduleList", []))
         return str(self.coordinator.data.get("travel", {}).get(self.key)).lower() in ["true", "1"]
     async def async_turn_on(self, **kwargs): self._is_locally_on = True; self.async_write_ha_state()
     async def async_turn_off(self, **kwargs): self._is_locally_on = False; self.async_write_ha_state()

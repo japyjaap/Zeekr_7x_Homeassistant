@@ -23,7 +23,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ("Laadspanning", ["qrvs", "chargeVoltage"], "V", "mdi:flash"),
         ("Laadvermogen", ["qrvs", "chargePower"], "kW", SensorDeviceClass.POWER),
         ("Laadtijd Minuten", ["main", "additionalVehicleStatus", "electricVehicleStatus", "timeToFullyCharged"], "min", None),
-        ("Actieradius", ["main", "additionalVehicleStatus", "electricVehicleStatus", "distanceToEmptyOnBatteryOnly"], "km", SensorDeviceClass.DISTANCE),
+        ("Actieradius", ["main", "additionalVehicleStatus", "electricVehicleStatus", "distanceToEmptyOnBatteryOnly"], "km", "mdi:map-marker-distance"),
 
         # --- Laadplanning (Direct uit de API) ---
         ("Geplande Laadtijd", ["plan", "startTime"], None, "mdi:clock-outline"),
@@ -113,11 +113,10 @@ class ZeekrSensor(CoordinatorEntity, SensorEntity):
             return mapping.get(str(val).strip(), f"Status {val}")
 
         # D. Kilometers afronden
-        if any(unit in str(self._attr_native_unit_of_measurement) for unit in ["km"]):
+        if self._attr_native_unit_of_measurement == "km":
             try:
                 return int(float(val))
-            except:
-                return val
+            except (ValueError, TypeError): return val
 
         return val
 

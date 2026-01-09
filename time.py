@@ -7,11 +7,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     prefix = entry.data.get("name", "Zeekr")
     dagnamen = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"]
-    
+
     entities = [
         ZeekrChargeTime(coordinator, entry, "start"),
         ZeekrChargeTime(coordinator, entry, "end")
     ]
+    entities.append(ZeekrTravelTime(coordinator, prefix, 0, "Dagelijkse", entry.entry_id))
     for i, dagnaam in enumerate(dagnamen, 1):
         entities.append(ZeekrTravelTime(coordinator, prefix, i, dagnaam, entry.entry_id))
         
@@ -34,15 +35,27 @@ class ZeekrTravelTime(CoordinatorEntity, TimeEntity):
 
     @property
     def native_value(self) -> time:
-        if self._local_time: return self._local_time
-        plans = self.coordinator.data.get("travel", {}).get("scheduleList", [])
-        for p in plans:
-            if str(p.get("day")) == str(self.day_index):
-                try:
-                    h, m = map(int, p.get("startTime", "08:00").split(':'))
-                    return time(h, m)
-                except: pass
-        return time(8, 0)
+        if self._local_time is not None:
+            return self._local_time
+        data = self.coordinator.data.get("travel", {})
+
+        if self.day_index > 0:
+            plans = self.coordinator.data.get("travel", {}).get("scheduleList", [])
+            for p in plans:
+                if str(p.get("day")) == str(self.day_index):
+                    try:
+                        h, m = map(int, p.get("startTime", "08:00").split(':'))
+                        return time(h, m)
+                    except: pass
+            return time(8, 0)
+        else:
+            ts = data.get("scheduledTime")
+            if ts and str(ts).isdigit():
+                # Omzetten van Unix ms naar uren/minuten (lokale tijd)
+                import datetime
+                dt = datetime.datetime.fromtimestamp(int(ts) / 1000.0)
+                return time(dt.hour, dt.minute)
+            return time(8, 0)
 
     async def async_set_value(self, value: time) -> None:
         self._local_time = value
