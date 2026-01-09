@@ -1,3 +1,14 @@
+# Synology metadata
+@eaDir/
+@SynoResource
+@SynoEAStream
+.DS_Store
+
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+*.pyd
+
+# Home Assistant
+*.log
