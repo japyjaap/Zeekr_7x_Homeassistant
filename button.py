@@ -57,7 +57,7 @@ class ZeekrTrunkButton(CoordinatorEntity, ButtonEntity):
     def __init__(self, coordinator, prefix):
         super().__init__(coordinator)
         vin = coordinator.entry.data.get('vin')
-        self._attr_name = f"{prefix} Kofferbak"
+        self._attr_name = f"{prefix} Kofferbak openen"
         self._attr_unique_id = f"{self.coordinator.entry.entry_id}_trunk_button"
         self._attr_icon = "mdi:car-back"
         self._attr_device_info = {
@@ -67,16 +67,18 @@ class ZeekrTrunkButton(CoordinatorEntity, ButtonEntity):
         }
 
     async def async_press(self):
-        # We controleren eerst de status om te bepalen of we openen of sluiten
-        status_open = self.coordinator.data.get("main", {}).get("additionalVehicleStatus", {}).get("drivingSafetyStatus", {}).get("trunkOpenStatus")
-        is_open = str(status_open) == "1"
-        
-        # Toggle logica
-        if is_open:
-             payload = {"command": "stop", "serviceId": "RTC", "setting": {"serviceParameters": [{"key": "trunk", "value": "0"}]}}
-             desc = "Kofferbak sluiten"
-        else:
-             payload = {"command": "start", "serviceId": "RTC", "setting": {"serviceParameters": [{"key": "trunk", "value": "100"}]}}
-             desc = "Kofferbak openen"
 
-        await self.coordinator.send_command(URL_CONTROL, payload, desc)
+        payload = {
+            "command": "start",
+            "serviceId": "RDU",
+            "setting": {
+                "serviceParameters": [
+                    {
+                        "key": "target",
+                        "value": "trunk"
+                    }
+                ]
+            }
+        }
+
+        await self.coordinator.send_command(URL_CONTROL, payload, "Achterklep openen")

@@ -24,6 +24,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ("Laadvermogen", ["qrvs", "chargePower"], "kW", SensorDeviceClass.POWER),
         ("Laadtijd Minuten", ["main", "additionalVehicleStatus", "electricVehicleStatus", "timeToFullyCharged"], "min", None),
         ("Actieradius", ["main", "additionalVehicleStatus", "electricVehicleStatus", "distanceToEmptyOnBatteryOnly"], "km", "mdi:map-marker-distance"),
+        # --- Status & Aandrijving ---
+        ("Voertuig Status", ["main", "basicVehicleStatus", "engineStatus"], None, "mdi:car"),
 
         # --- Laadplanning (Direct uit de API) ---
         ("Geplande Laadtijd", ["plan", "startTime"], None, "mdi:clock-outline"),
@@ -47,7 +49,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
     
     entities = [ZeekrSensor(coordinator, prefix, *s) for s in sensor_definitions]
     
-    # Voeg de extra 'Nette' laadtijd sensor toe (gebaseerd op hetzelfde pad als de minuten)
     entities.append(ZeekrChargingTimeFormattedSensor(coordinator, prefix))
     
     async_add_entities(entities)
@@ -119,6 +120,15 @@ class ZeekrSensor(CoordinatorEntity, SensorEntity):
             except (ValueError, TypeError): return val
 
         return val
+        # E. Voertuig Status (Mapping)
+        if "Voertuig Status" in self._raw_name:
+            mapping = {
+                "engine-off": "Geparkeerd",
+                "driving": "Rijdend",
+                "ready": "Startklaar",
+                "charging": "Aan het laden"
+            }
+            return mapping.get(str(val).lower(), str(val).capitalize())
 
 class ZeekrChargingTimeFormattedSensor(CoordinatorEntity, SensorEntity):
     """Speciale sensor voor nette weergave van laadtijd."""
