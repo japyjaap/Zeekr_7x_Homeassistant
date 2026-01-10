@@ -105,13 +105,13 @@ class ZeekrCoordinator(DataUpdateCoordinator):
                     vehicle_info = search_list[0]
 
                 return {
-                    "main": status_data,
-                    "qrvs": get_data(raw_results[1]) if raw_results[1] else status_data.get("additionalVehicleStatus", {}).get("electricVehicleStatus", {}),
-                    "plan": get_data(raw_results[2]),
-                    "soc_limit": get_data(raw_results[3]),
-                    "travel": get_data(raw_results[4]),
-                    "sentry": get_data(raw_results[5]),
-                    "info": vehicle_info
+                    "main": status_data if isinstance(status_data, dict) else {},
+                    "qrvs": get_data(raw_results[1]) if raw_results[1] else {},
+                    "plan": get_data(raw_results[2]) if raw_results[2] else {},
+                    "soc_limit": get_data(raw_results[3]) if raw_results[3] else {},
+                    "travel": get_data(raw_results[4]) if raw_results[4] else {},
+                    "sentry": get_data(raw_results[5]) if raw_results[5] else {},
+                    "info": vehicle_info if isinstance(vehicle_info, dict) else {}
                 }
 
 

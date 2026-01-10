@@ -109,7 +109,7 @@ class ZeekrSensor(CoordinatorEntity, SensorEntity):
 
         # C. Laadstatus
         if "Laadstatus" in self._raw_name:
-            mapping = {"0": "Niet verbonden", "2": "Aan het laden", "3": "Verbonden", "4": "Laden voltooid"}
+            mapping = {"0": "Niet aan het laden", "2": "Aan het laden", "3": "Verbonden", "4": "Laden voltooid"}
             return mapping.get(str(val).strip(), f"Status {val}")
 
         # D. Kilometers afronden

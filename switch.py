@@ -120,9 +120,17 @@ class ZeekrTravelPlanSwitch(CoordinatorEntity, SwitchEntity):
 
         await self.coordinator.send_command(URL_SET_TRAVEL, payload, f"Travelplan {command}")
         
+        day_switches = getattr(self, "_day_switches", [])
+        if day_switches:
+            for sw in day_switches:
+                if sw is not None:
+                    sw._is_locally_on = None
 
-        for sw in self._day_switches + [self._ac_opt, self._bw_opt, self._cycle_opt]:
-            sw._is_locally_on = None
+        # Reset ook de optie switches (met extra check)
+        for opt in ["_ac_opt", "_bw_opt", "_cycle_opt"]:
+            target = getattr(self, opt, None)
+            if target:
+                target._is_locally_on = None
 
 
     async def async_turn_on(self, **kwargs): await self._send_plan("start")
@@ -296,8 +304,12 @@ class ZeekrTravelDaySwitch(CoordinatorEntity, SwitchEntity):
         }
     @property
     def is_on(self):
-        if self._is_locally_on is not None: return self._is_locally_on
-        return any(str(p.get("day")) == str(self.day_index) for p in self.coordinator.data.get("travel", {}).get("scheduleList", []))
+        if self._is_locally_on is not None: 
+            return self._is_locally_on
+            
+        # Veilige check voor de lijst
+        schedules = self.coordinator.data.get("travel", {}).get("scheduleList") or []
+        return any(str(p.get("day")) == str(self.day_index) for p in schedules if isinstance(p, dict))
     async def async_turn_on(self, **kwargs): self._is_locally_on = True; self.async_write_ha_state()
     async def async_turn_off(self, **kwargs): self._is_locally_on = False; self.async_write_ha_state()
 
@@ -311,8 +323,19 @@ class ZeekrTravelOptionSwitch(CoordinatorEntity, SwitchEntity):
         }
     @property
     def is_on(self):
-        if self._is_locally_on is not None: return self._is_locally_on
-        if self.key == "cycle": return any(str(p.get("timerActivation")) == "1" for p in self.coordinator.data.get("travel", {}).get("scheduleList", []))
-        return str(self.coordinator.data.get("travel", {}).get(self.key)).lower() in ["true", "1"]
+        if self._is_locally_on is not None: 
+            return self._is_locally_on
+            
+        travel_data = self.coordinator.data.get("travel", {})
+        if not isinstance(travel_data, dict):
+            return False
+
+        if self.key == "cycle":
+            # De 'or []' aan het einde is cruciaal voor als scheduleList 'null' is
+            schedules = travel_data.get("scheduleList") or []
+            return any(str(p.get("timerActivation")) == "1" for p in schedules if isinstance(p, dict))
+            
+        return str(travel_data.get(self.key)).lower() in ["true", "1"]
+
     async def async_turn_on(self, **kwargs): self._is_locally_on = True; self.async_write_ha_state()
     async def async_turn_off(self, **kwargs): self._is_locally_on = False; self.async_write_ha_state()

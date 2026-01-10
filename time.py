@@ -6,7 +6,7 @@ from .const import DOMAIN, URL_CHARGE_PLAN
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     prefix = entry.data.get("name", "Zeekr")
-    dagnamen = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"]
+    dagnamen = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
 
     entities = [
         ZeekrChargeTime(coordinator, entry, "start"),
@@ -40,7 +40,7 @@ class ZeekrTravelTime(CoordinatorEntity, TimeEntity):
         data = self.coordinator.data.get("travel", {})
 
         if self.day_index > 0:
-            plans = self.coordinator.data.get("travel", {}).get("scheduleList", [])
+            plans = self.coordinator.data.get("travel", {}).get("scheduleList", []) or []
             for p in plans:
                 if str(p.get("day")) == str(self.day_index):
                     try:
