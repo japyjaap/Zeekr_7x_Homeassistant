@@ -1,20 +1,19 @@
 from homeassistant.components.time import TimeEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from datetime import time
+import datetime
 from .const import DOMAIN, URL_CHARGE_PLAN
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    prefix = entry.data.get("name", "Zeekr")
-    dagnamen = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+    prefix = entry.data.get("name", "Zeekr 7X")
 
     entities = [
         ZeekrChargeTime(coordinator, entry, "start"),
         ZeekrChargeTime(coordinator, entry, "end")
     ]
-    entities.append(ZeekrTravelTime(coordinator, prefix, 0, "Dagelijkse", entry.entry_id))
-    for i, dagnaam in enumerate(dagnamen, 1):
-        entities.append(ZeekrTravelTime(coordinator, prefix, i, dagnaam, entry.entry_id))
+    entities.append(ZeekrTravelTime(coordinator, prefix, 0, "Reisplan", entry.entry_id))
+
         
     async_add_entities(entities)
 
@@ -23,10 +22,14 @@ class ZeekrTravelTime(CoordinatorEntity, TimeEntity):
         super().__init__(coordinator)
         vin = coordinator.entry.data.get('vin')
         self.day_index = day_num
-        self._attr_name = f"{prefix} {day_name} Tijd"
-        self._attr_unique_id = f"{entry_id}_travel_day_{day_num}_time"
-        self._attr_icon = "mdi:clock-outline"
         self._local_time = None
+        
+        prefix_slug = prefix.lower().replace(" ", "_")
+        self.entity_id = f"time.{prefix_slug}_reisplan_tijd"
+
+        self._attr_name = f"{prefix} {day_name} Tijd"
+        self._attr_unique_id = f"{entry_id}_travel_main_time"
+        self._attr_icon = "mdi:clock-outline"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, vin)},
             "name": prefix,
@@ -35,27 +38,41 @@ class ZeekrTravelTime(CoordinatorEntity, TimeEntity):
 
     @property
     def native_value(self) -> time:
+        data = self.coordinator.data.get("travel", {})
+        
+        # 1. Haal eerst de tijd uit de API (auto)
+        auto_time = None
+        
+        # Check scheduleList
+        plans = data.get("scheduleList") or []
+        for p in plans:
+            if isinstance(p, dict) and p.get("startTime"):
+                try:
+                    h, m = map(int, p.get("startTime").split(':'))
+                    auto_time = time(h, m)
+                    break 
+                except: continue
+
+        # Check scheduledTime (als nog geen tijd gevonden)
+        if auto_time is None:
+            ts = data.get("scheduledTime")
+            if ts and str(ts).isdigit() and int(ts) > 0:
+                try:
+                    dt = datetime.datetime.fromtimestamp(int(ts) / 1000.0)
+                    auto_time = time(dt.hour, dt.minute)
+                except: pass
+
+        # 2. Logica voor lokale overschrijving:
+        # Als de tijd uit de auto gelijk is aan onze lokale tijd, 
+        # dan maken we de lokale tijd weer leeg zodat we de auto weer volgen.
+        if self._local_time is not None and auto_time == self._local_time:
+            self._local_time = None
+
+        # Toon lokale tijd als je aan het aanpassen bent, anders de tijd uit de auto
         if self._local_time is not None:
             return self._local_time
-        data = self.coordinator.data.get("travel", {})
-
-        if self.day_index > 0:
-            plans = self.coordinator.data.get("travel", {}).get("scheduleList", []) or []
-            for p in plans:
-                if str(p.get("day")) == str(self.day_index):
-                    try:
-                        h, m = map(int, p.get("startTime", "08:00").split(':'))
-                        return time(h, m)
-                    except: pass
-            return time(8, 0)
-        else:
-            ts = data.get("scheduledTime")
-            if ts and str(ts).isdigit():
-                # Omzetten van Unix ms naar uren/minuten (lokale tijd)
-                import datetime
-                dt = datetime.datetime.fromtimestamp(int(ts) / 1000.0)
-                return time(dt.hour, dt.minute)
-            return time(8, 0)
+            
+        return auto_time if auto_time is not None else time(8, 0)
 
     async def async_set_value(self, value: time) -> None:
         self._local_time = value
@@ -65,10 +82,10 @@ class ZeekrChargeTime(CoordinatorEntity, TimeEntity):
     def __init__(self, coordinator, entry, time_type):
         super().__init__(coordinator)
         vin = coordinator.entry.data.get('vin')
-        prefix = coordinator.entry.data.get('name', 'Zeekr')
+        prefix = coordinator.entry.data.get('name', 'Zeekr 7X')
         self.entry = entry
         self.time_type = time_type
-        self._attr_name = f"{coordinator.entry.data.get('name', 'Zeekr')} Laadplan {time_type.capitalize()}tijd"
+        self._attr_name = f"{coordinator.entry.data.get('name', 'Zeekr 7X')} Laadplan {time_type.capitalize()}tijd"
         self._attr_unique_id = f"{entry.entry_id}_charge_{time_type}_time"
         self._attr_icon = "mdi:clock-start" if time_type == "start" else "mdi:clock-end"
         self._attr_device_info = {
