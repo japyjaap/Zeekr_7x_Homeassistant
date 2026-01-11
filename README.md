@@ -26,12 +26,10 @@ Voor de installatie zijn specifieke tokens nodig die je moet onderscheppen uit h
 
 Hoewel de integratie stabiel is, zijn er enkele bekende beperkingen (vaak gerelateerd aan de Zeekr API):
 
-1. **Laadplan Slider:** De sliders voor het aanpassen van de laadtijden werken momenteel nog niet optimaal; wijzigingen worden niet altijd direct opgeslagen in de auto.
-2. **Dagelijkse Tijd:** De synchronisatie van de "Dagelijkse" (eenmalige) reistijd tussen de app en HA is nog experimenteel en kan op 08:00 terugvallen.
-3. **Airco Bediening:** Net als in de officiële Zeekr app reageert de auto niet altijd op het 'Stop' commando voor de airco. Soms moet je de airco **twee keer handmatig uitzetten** voordat deze daadwerkelijk stopt.
-4. **Token Refresh:** Omdat de Access Token verloopt na 7 dagen, moet de integratie daarna opnieuw worden ingesteld met een vers token.
+1. **Airco Bediening:** Net als in de officiële Zeekr app reageert de auto niet altijd op het 'Stop' commando voor de airco. Soms moet je de airco **twee keer handmatig uitzetten** voordat deze daadwerkelijk stopt.
+2. **Token Refresh:** Omdat de Access Token verloopt na 7 dagen, moet de integratie daarna opnieuw worden ingesteld met een vers token.
 
 ## 🛠 Installatie
-1. Kopieer de map `zeekr` naar je `custom_components` map.
+1. Kopieer de map `Zeekr_7x` naar je `custom_components` map.
 2. Herstart Home Assistant.
 3. Voeg de integratie toe en vul je `X-VIN` en `Access Token` in.
