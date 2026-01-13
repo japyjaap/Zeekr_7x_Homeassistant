@@ -144,7 +144,7 @@ Voorbeeld automatisering waarbij sentry-mode automatisch aangaat wanneer de auto
           fill_container: true
           collapsible_controls: false
         - type: picture-elements
-          image: /local/images/zeekr_7x_top.png
+          image: https://raw.githubusercontent.com/japyjaap/Zeekr_7x_Homeassistant/main/custom_components/zeekr_7x/images/zeekr_7x_top.png
           elements:
             - type: state-label
               entity: sensor.zeekr_bandenspanning_rv
@@ -996,7 +996,7 @@ Voorbeeld automatisering waarbij sentry-mode automatisch aangaat wanneer de auto
         image_type: url
         image_width: 100
         priority: 0
-        image: /local/images/zeekr_7x.png
+        image: https://raw.githubusercontent.com/japyjaap/Zeekr_7x_Homeassistant/main/custom_components/zeekr_7x/images/zeekr_7x.png
       - name: Vehicle Image
         image_type: default
         image_width: 100
