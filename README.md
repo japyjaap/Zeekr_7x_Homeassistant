@@ -36,7 +36,8 @@ Hoewel de integratie stabiel is, zijn er enkele bekende beperkingen (vaak gerela
 2. Herstart Home Assistant.
 3. Voeg de integratie toe en vul je `X-VIN` en `Access Token` in.
 
-<b>Automatiseringen:</b>
+<b>Hieronder is de code te vinden voor een automatisering en een aantal dashboards</b> 
+<i> * Let op: Ik heb mijn auto de naam Zeekr gegeven, bij andere naam moet je de entities hernoemen *</i>
 
 Voorbeeld automatisering waarbij sentry-mode automatisch aangaat wanneer de auto geparkeerd wordt op een ander lokatie dan Thuis. Op het moment dat er thuis geparkeerd wordt gaat sentrymodus weer uit.
 <details>
@@ -89,8 +90,6 @@ Voorbeeld automatisering waarbij sentry-mode automatisch aangaat wanneer de auto
   mode: single
   ```
 </details>
-
-<b> Voorbeeld dashboards: </b>
 
 <b>Voorbeeld 1: </b> Op basis van mushroom en stack-in-card
 
