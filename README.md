@@ -36,6 +36,65 @@ Hoewel de integratie stabiel is, zijn er enkele bekende beperkingen (vaak gerela
 2. Herstart Home Assistant.
 3. Voeg de integratie toe en vul je `X-VIN` en `Access Token` in.
 
+<b>Automatiseringen:</b>
+
+Voorbeeld automatisering waarbij sentry-mode automatisch aangaat wanneer de auto geparkeerd wordt op een ander lokatie dan Thuis. Op het moment dat er thuis geparkeerd wordt gaat sentrymodus weer uit.
+<details>
+  <summary><b>Klik hier om de automatisering YAML te bekijken</b></summary>
+
+  ```yaml
+  alias: "Zeekr 7X: Slimme Sentry Mode"
+  description: Zet Sentry aan bij vergrendelen buitenshuis en uit bij thuiskomst.
+  triggers:
+    - entity_id:
+        - sensor.zeekr_voertuig_status
+      to:
+        - Geparkeerd
+      id: auto_uit
+      trigger: state
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: auto_uit
+            - condition: not
+              conditions:
+                - condition: zone
+                  entity_id: device_tracker.zeekr_locatie
+                  zone: zone.home
+            - condition: state
+              entity_id: switch.zeekr_sentry_mode
+              state:
+                - "off"
+          sequence:
+            - action: switch.turn_on
+              data: {}
+              target:
+                entity_id: switch.zeekr_sentry_mode
+        - conditions:
+            - condition: trigger
+              id: auto_uit
+            - condition: zone
+              entity_id: device_tracker.zeekr_locatie
+              zone: zone.home
+            - condition: state
+              entity_id: switch.zeekr_sentry_mode
+              state:
+                - "on"
+          sequence:
+            - action: switch.turn_off
+              data: {}
+              target:
+                entity_id: switch.zeekr_sentry_mode
+  mode: single
+  ```
+</details>
+
+<b> Voorbeeld dashboards: </b>
+
+<b>Voorbeeld 1: </b> Op basis van mushroom en stack-in-card
+
+
 <img width="516" height="977" alt="image" src="https://github.com/user-attachments/assets/648973b0-06fd-410c-8c34-f5a4462d1324" />
 
 <details>
@@ -149,9 +208,11 @@ Hoewel de integratie stabiel is, zijn er enkele bekende beperkingen (vaak gerela
             - entity: device_tracker.zeekr_locatie
           aspect_ratio: "16:9"
           default_zoom: 15
-
+  ```
 </details>
 
+<b>Voorbeeld 2: [Ultra Vehicle Card](https://github.com/WJDDesigns/Ultra-Vehicle-Card)</b>
+*Let op: Voor deze kaart moet je de Ultra Vehicle Card via HACS geïnstalleerd hebben.*
 
 <img width="517" height="685" alt="image" src="https://github.com/user-attachments/assets/6c9bb838-7316-4e0b-b190-c4011d2dc27b" />
 
@@ -1038,6 +1099,117 @@ Hoewel de integratie stabiel is, zijn er enkele bekende beperkingen (vaak gerela
       icon_row_pev6gmr:
         template_mode: true
         template: "{{ states('binary.sensor.zeekr_laadkabel') == 'Losgekoppeld'}}"
-
+  ```
 </details>
 
+
+<b>Voorbeeld 3: </b>Blok met laadinstelling en travelplanning, de dagelijkse planning wordt pas zichtbaar als Reisplan switch aan staat (met stack-in-card).
+
+
+<img width="521" height="720" alt="image" src="https://github.com/user-attachments/assets/5cccc08a-d01d-47d1-b291-1018cf5a8d4a" />
+
+<details>
+  <summary><b>Klik hier om de YAML te bekijken</b></summary>
+
+  ```yaml
+  type: custom:stack-in-card
+  cards:
+    - type: entities
+      title: Laden Instellingen
+      show_header_toggle: false
+      entities:
+        - entity: number.zeekr_laadlimiet
+          name: Maximale Lading (%)
+        - entity: switch.zeekr_laadplan_actief
+          name: Gepland laden
+        - entity: time.zeekr_laadplan_starttijd
+          secondary_info: none
+        - entity: time.zeekr_laadplan_endtijd
+          name: Laadplan Eindtijd
+    - type: entities
+      title: Reisplanning
+      show_header_toggle: false
+      state_color: true
+      entities:
+        - entity: switch.zeekr_reisplanning
+          name: Planning Actief
+        - entity: button.zeekr_update_reisplan
+          name: Synchroniseer naar auto
+          icon: mdi:cloud-upload
+        - type: divider
+        - entity: switch.zeekr_reisplan_cabinecomfort
+          name: Cabine Voorverwarmen
+        - entity: switch.zeekr_reisplan_accubehoud
+          name: Accu Conditioneren
+        - entity: time.zeekr_reisplan_tijd
+        - entity: switch.zeekr_reisplan_cyclus
+          name: Gedetailleerd Reisplan
+    - type: custom:stack-in-card
+      cards:
+        - type: conditional
+          conditions:
+            - entity: switch.zeekr_reisplan_cyclus
+              state: "on"
+          card:
+            type: horizontal-stack
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_maandag_actief
+                name: Ma
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_dinsdag_actief
+                name: Di
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_woensdag_actief
+                name: Wo
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_donderdag_actief
+                name: Do
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_vrijdag_actief
+                name: Vr
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_zaterdag_actief
+                name: Za
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+              - type: custom:mushroom-entity-card
+                entity: switch.zeekr_zondag_actief
+                name: Zo
+                icon: mdi:calendar-check
+                layout: vertical
+                primary_info: name
+                secondary_info: none
+                icon_color: blue
+                visibility: null
+    ```
+
+</details>
